@@ -43,23 +43,9 @@ func setGlobleConfigPath(path string, f os.FileInfo, err error) error {
 		return nil
 	}
 
-	var strRet string
-	strRet, _ = os.Getwd()
+	globalConfigPath = path
 
-	strRet += "/"
-
-	if f == nil {
-		return err
-	}
-	if f.IsDir() {
-		return nil
-	}
-
-	strRet += path
-
-	globalConfigPath = strRet
-
-	fmt.Println(strRet) //list the file
+	fmt.Println(path) //list the file
 
 	return nil
 }
