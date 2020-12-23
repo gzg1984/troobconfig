@@ -2,6 +2,7 @@ package troobconfig
 
 import (
 	"log"
+	"sync"
 
 	"gopkg.in/ini.v1"
 )
@@ -44,12 +45,16 @@ func getPathConfig() error {
 	return nil
 }
 
-/*InitGlobalBasePath should call before use all other file operation*/
-func InitGlobalBasePath() error {
-	err := getPathConfig()
-	if err != nil {
-		log.Printf("config file exist but Get DB From configfile failed:%v\n", err)
-	}
+var pathOnce sync.Once
 
-	return nil
+/*InitGlobalBasePath should call before use all other file operation*/
+func InitGlobalBasePath() {
+	pathOnce.Do(func() {
+		err := getPathConfig()
+		if err != nil {
+			log.Printf("config file exist but Get DB From configfile failed:%v\n", err)
+		}
+		return
+	})
+
 }

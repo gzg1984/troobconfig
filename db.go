@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"gopkg.in/ini.v1"
 )
@@ -138,28 +139,29 @@ var DBPassword = flag.String("p", "itil", "Password to use when connecting to na
 var DBName = flag.String("D", "proc_conf", "name service Database to use.")
 
 var globalDB *sql.DB
+var dbOnce sync.Once
 
 /*InitGlobalDBManager should call before use all other db feature*/
-func InitGlobalDBManager() error {
-	err := getDBConfig()
-	if err != nil {
-		log.Printf("config file exist but Get DB From configfile failed:%v\n", err)
-	}
-	connectComman := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
-		*DBUser, *DBPassword, *DBHost, *DBPort, *DBName)
-	globalDB, err = sql.Open("mysql", connectComman)
-	if err != nil {
-		fmt.Printf("DB Open Error %v\n", err)
-		globalDB = nil
-		return err
-	}
-	fmt.Printf("Connect Success to : %v\n", connectComman)
+func InitGlobalDBManager() {
+	dbOnce.Do(func() {
+		err := getDBConfig()
+		if err != nil {
+			log.Printf("config file exist but Get DB From configfile failed:%v\n", err)
+		}
+		connectComman := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
+			*DBUser, *DBPassword, *DBHost, *DBPort, *DBName)
+		globalDB, err = sql.Open("mysql", connectComman)
+		if err != nil {
+			fmt.Printf("DB Open Error %v\n", err)
+			globalDB = nil
+		}
+		fmt.Printf("Connect Success to : %v\n", connectComman)
+	})
 
-	return nil
 }
 
-/*LocateIndex is for all route*/
-func LocateIndex() error {
+/*ListAllIndex is for all route*/
+func ListAllIndex() error {
 	queryString := fmt.Sprintf("SELECT index_path,title_en FROM tb_project_base;")
 	tables, err := globalDB.Query(queryString)
 	if err != nil {
@@ -179,4 +181,26 @@ func LocateIndex() error {
 
 	}
 	return nil
+}
+
+func searchIndex(project string) string {
+	queryString := fmt.Sprintf("SELECT index_path FROM tb_project_base where title like '%%%v%%';",
+		project)
+	tables, err := globalDB.Query(queryString)
+	if err != nil {
+		fmt.Printf("show tables failed:%v", err)
+		return ""
+	}
+	for tables.Next() {
+		var indexPath string
+
+		err = tables.Scan(&indexPath)
+		if err != nil {
+			fmt.Printf("Scan Error :%v", err)
+			return ""
+		}
+
+		return indexPath
+	}
+	return ""
 }

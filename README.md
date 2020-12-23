@@ -10,4 +10,5 @@
  
  /usr/local/bin/go test -v -timeout 30s -run ^TestInitGlobalDBManager$ troobconfig
 
+ /usr/local/bin/go test -timeout 30s -run ^TestGetIndexPath$ troobconfig -v -project spdk
 ```

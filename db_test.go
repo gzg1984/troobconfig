@@ -15,12 +15,9 @@ func TestDB(t *testing.T) {
 }
 
 func TestInitGlobalDBManager(t *testing.T) {
-	err := InitGlobalDBManager()
-	if err != nil {
-		t.Logf("InitGlobalDBManager error:%v", err)
-		t.FailNow()
-	}
-	err = LocateIndex()
+	InitGlobalDBManager()
+
+	err := ListAllIndex()
 	if err != nil {
 		t.Logf("LocateIndex error:%v", err)
 		t.FailNow()
