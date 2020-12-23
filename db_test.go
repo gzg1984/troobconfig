@@ -1,8 +1,28 @@
 package troobconfig
 
-import "testing"
+import (
+	"testing"
+
+	_ "github.com/go-sql-driver/mysql"
+)
 
 func TestDB(t *testing.T) {
 	err := getDBConfig()
-	t.Logf("%v", err)
+	if err != nil {
+		t.Logf("%v", err)
+		t.FailNow()
+	}
+}
+
+func TestInitGlobalDBManager(t *testing.T) {
+	err := InitGlobalDBManager()
+	if err != nil {
+		t.Logf("InitGlobalDBManager error:%v", err)
+		t.FailNow()
+	}
+	err = CheckTableInfo()
+	if err != nil {
+		t.Logf("CheckTableInfo error:%v", err)
+		t.FailNow()
+	}
 }

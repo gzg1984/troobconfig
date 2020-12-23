@@ -7,18 +7,20 @@ import (
 	"path/filepath"
 )
 
-/*DefaultConfigFileName is used to set the DB host IP */
-var DefaultConfigFileName = flag.String("config", "database.properties", "Config File Name or Path")
+/*DefaultDBConfigFileName is used to set the DB host IP */
+//var DefaultDBConfigFileName = flag.String("config", "database.properties", "Config File Name or Path")
+var DefaultDBConfigFileName = flag.String("config", "jdbc.properties", "Config File Name or Path")
 
 /*SearchRoot is used to search config file */
 var SearchRoot = flag.String("search", "/opt", "Config File Name or Path")
 
-func getConfigFile() string {
-
-	if isExist(*DefaultConfigFileName) {
-		return *DefaultConfigFileName
+func getDBConfigFile() string {
+	flag.Parse()
+	fmt.Printf("Searching for %v\n", *DefaultDBConfigFileName)
+	if isExist(*DefaultDBConfigFileName) {
+		return *DefaultDBConfigFileName
 	}
-	return searchInPath(*SearchRoot)
+	return searchDBConfigInPath(*SearchRoot)
 }
 
 // IsExist checks whether a file or directory exists.
@@ -28,22 +30,22 @@ func isExist(f string) bool {
 	return err == nil || os.IsExist(err)
 }
 
-func searchInPath(path string) string {
+func searchDBConfigInPath(path string) string {
 	err := filepath.Walk(path, setGlobleConfigPath)
 	if err != nil {
 		fmt.Printf("filepath.Walk() returned %v\n", err)
 		return ""
 	}
-	return globalConfigPath
+	return globalDBConfigPath
 }
 
-var globalConfigPath string //获取文件列表
+var globalDBConfigPath string //获取文件列表
 func setGlobleConfigPath(path string, f os.FileInfo, err error) error {
-	if f.Name() != *DefaultConfigFileName {
+	if f.Name() != *DefaultDBConfigFileName {
 		return nil
 	}
 
-	globalConfigPath = path
+	globalDBConfigPath = path
 
 	fmt.Println(path) //list the file
 

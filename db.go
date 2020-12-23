@@ -5,42 +5,119 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 
 	"gopkg.in/ini.v1"
 )
 
-/*
-func initOnce() {
-	initlocker.Do(func() {
-		flag.Parse()
+func analyzeURL(url string) {
+	/*jdbc:mysql://localhost:3306/lxr_prod?useUnicode=true&characterEncoding=utf-8*/
+	/*url=jdbc:mysql://127.0.0.1/lxr_db*/
 
-		cfg, err := ini.Load(*ConfigFile)
-		if err != nil {
-			log.Printf("Cannot Find Config file[%v], use default values", *ConfigFile)
-		}
+	/*step 1: sep from ? */
+	cutArgs := strings.Split(url, "?")
+	if len(cutArgs) < 1 {
+		return
+	}
 
-		err = InitNameServiceWithConfig(cfg)
-		if err != nil {
-			log.Printf("InitNameServiceWithConfig err:%v", err)
-		}
-	})
+	/* step 2: get target and DB name */
+	mysqlBase := cutArgs[0]
 
-}*/
+	var targetAndDB string
+	n, err := fmt.Sscanf(mysqlBase, "jdbc:mysql://%s",
+		&targetAndDB)
+	if err != nil || n != 1 {
+		fmt.Printf("scan[%v] result is [%d] , want 1 , error is %v\n",
+			mysqlBase, n, err)
+		return
+	}
+
+	fmt.Printf("targetAndDB is %v\n",
+		targetAndDB)
+
+	/* step 2.5: get DB name */
+	targetAndDBArray := strings.Split(targetAndDB, "/")
+	if len(targetAndDBArray) < 2 {
+		return
+	}
+	target := targetAndDBArray[0]
+	*DBName = targetAndDBArray[1]
+
+	/* step 3: get DB Host and port */
+	hp := strings.Split(target, ":")
+	if len(hp) < 1 {
+		return
+	} else if len(hp) == 1 {
+		*DBHost = target
+		return
+	} else if len(hp) == 2 {
+		var host string
+		var port int
+		fmt.Sscanf(target, "%s:%d",
+			&host, &port)
+		*DBHost = target
+		*DBPort = port
+	}
+
+}
+
+func initHostFromConfig(cfg *ini.File) {
+	hikaricpurl := cfg.Section("").Key("hikaricp.url").String()
+	if len(hikaricpurl) != 0 {
+		analyzeURL(hikaricpurl)
+		return
+	}
+
+	url := cfg.Section("").Key("url").String()
+	if len(url) != 0 {
+		analyzeURL(url)
+		return
+	}
+}
+
+func initUserFromConfig(cfg *ini.File) {
+	hikaricpuser := cfg.Section("").Key("hikaricp.username").String()
+	if len(hikaricpuser) != 0 {
+		*DBUser = hikaricpuser
+		return
+	}
+
+	user := cfg.Section("").Key("username").String()
+	if len(user) != 0 {
+		*DBUser = user
+		return
+	}
+}
+
+func initPasswordFromConfig(cfg *ini.File) {
+	hikaricppassword := cfg.Section("").Key("hikaricp.password").String()
+	if len(hikaricppassword) != 0 {
+		*DBPassword = hikaricppassword
+		return
+	}
+
+	password := cfg.Section("").Key("password").String()
+	if len(password) != 0 {
+		*DBPassword = password
+		return
+	}
+}
 
 func getDBConfig() error {
-	cfg, err := ini.Load("database.properties")
+	configfile := getDBConfigFile()
+	if len(configfile) == 0 {
+		return nil
+	}
+	cfg, err := ini.Load(configfile)
 	if err != nil {
 		log.Printf("Cannot Find Config file, use default values\n")
 		return err
 	}
 
 	if cfg != nil {
-		temphost := cfg.Section("").Key("hikaricp.url").String()
-		if len(temphost) == 0 {
-			return fmt.Errorf("Get DB Host From Config File Error")
-		}
-		log.Printf("URL:%v\n", temphost)
-
+		initHostFromConfig(cfg)
+		initUserFromConfig(cfg)
+		initPasswordFromConfig(cfg)
 	}
 	return nil
 }
@@ -49,7 +126,7 @@ func getDBConfig() error {
 var DBHost = flag.String("host", "127.0.0.1", "Host IP of name service Database")
 
 /*DBPort is used to set the DB host Port */
-var DBPort = flag.Int("P", 3476, "Port used to login name service Database")
+var DBPort = flag.Int("P", 3306, "Port used to login name service Database")
 
 /*DBUser is used to set the DB host User */
 var DBUser = flag.String("u", "itil", "user used to login name service Database")
@@ -60,81 +137,45 @@ var DBPassword = flag.String("p", "itil", "Password to use when connecting to na
 /*DBName is used to set monitor router config database name */
 var DBName = flag.String("D", "proc_conf", "name service Database to use.")
 
-var db *sql.DB
+var globalDB *sql.DB
 
-/*InitNameService should call before use all name service routers
-func InitNameService() error {
-	var err error
+/*InitGlobalDBManager should call before use all other db feature*/
+func InitGlobalDBManager() error {
+	err := getDBConfig()
+	if err != nil {
+		log.Printf("config file exist but Get DB From configfile failed:%v\n", err)
+	}
 	connectComman := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?parseTime=true",
 		*DBUser, *DBPassword, *DBHost, *DBPort, *DBName)
-	db, err = sql.Open("mysql", connectComman)
+	globalDB, err = sql.Open("mysql", connectComman)
 	if err != nil {
 		fmt.Printf("DB Open Error %v\n", err)
-		db = nil
+		globalDB = nil
 		return err
 	}
+	fmt.Printf("Connect Success to : %v\n", connectComman)
 
-	err = CheckTableInfo()
-	if err != nil {
-		return err
-	}
-	go func() {
-		for {
-			time.Sleep(10 * time.Second)
-			err := CheckTableInfo()
-			if err != nil {
-				log.Printf("CheckTableInfo Failed: %v\n", *DBHost)
-			}
-		}
-
-	}()
 	return nil
-}*/
+}
 
-/*InitNameServiceWithConfig should be called before using every routers
-func InitNameServiceWithConfig(cfg *ini.File) error {
-	if cfg != nil {
-		temphost := cfg.Section("mysql").Key("db_host").String()
-		if len(temphost) == 0 {
-			return fmt.Errorf("Get DB Host From Config File Error")
-		}
-		*DBHost = temphost
-		log.Printf("Get DB Host From Config File: %v", *DBHost)
-
-		tempname := cfg.Section("mysql").Key("db_name").String()
-		if len(tempname) == 0 {
-			return fmt.Errorf("GetDB Name From Config File Error")
-		}
-		*DBName = tempname
-		log.Printf("Get DB Name  From Config File: %v", *DBName)
-
-		tempUser := cfg.Section("mysql").Key("db_user").String()
-		if len(tempUser) == 0 {
-			return fmt.Errorf("Get DB User From Config File Error")
-		}
-		*DBUser = tempUser
-		log.Printf("Get DB User From Config File: %v", *DBUser)
-
-		tempPasswd := cfg.Section("mysql").Key("db_password").String()
-		if len(tempPasswd) == 0 {
-			return fmt.Errorf("Get DB Password From Config File Error")
-		}
-		*DBPassword = tempPasswd
-		log.Printf("Get DB Password From Config File: %v", *DBPassword)
-
-		tempPort, err := cfg.Section("mysql").Key("db_port").Int()
-		if err != nil {
-			return fmt.Errorf("Get Key From Config File Error: %v", err)
-		}
-		*DBPort = tempPort
-		log.Printf("Get DB Port From Config File: %v", *DBPort)
+/*CheckTableInfo is for all route*/
+func CheckTableInfo() error {
+	queryString := fmt.Sprintf("SELECT title FROM navigation;")
+	tables, err := globalDB.Query(queryString)
+	if err != nil {
+		return fmt.Errorf("show tables failed:%v", err)
 
 	}
-	return InitNameService()
-}
-*/
+	for tables.Next() {
+		var title string
 
-/*GetGlobalDBName return DBName from globle variable*/
-func GetGlobalDBName() string {
-	return *DBName
+		err = tables.Scan(&title)
+		if err != nil {
+			return fmt.Errorf("Scan Error :%v", err)
+		}
+
+		fmt.Printf("title is %v\n", title)
+
+	}
+	return nil
 }
