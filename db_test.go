@@ -20,9 +20,9 @@ func TestInitGlobalDBManager(t *testing.T) {
 		t.Logf("InitGlobalDBManager error:%v", err)
 		t.FailNow()
 	}
-	err = CheckTableInfo()
+	err = LocateIndex()
 	if err != nil {
-		t.Logf("CheckTableInfo error:%v", err)
+		t.Logf("LocateIndex error:%v", err)
 		t.FailNow()
 	}
 }

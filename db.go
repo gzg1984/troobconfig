@@ -158,23 +158,24 @@ func InitGlobalDBManager() error {
 	return nil
 }
 
-/*CheckTableInfo is for all route*/
-func CheckTableInfo() error {
-	queryString := fmt.Sprintf("SELECT title FROM navigation;")
+/*LocateIndex is for all route*/
+func LocateIndex() error {
+	queryString := fmt.Sprintf("SELECT index_path,title_en FROM tb_project_base;")
 	tables, err := globalDB.Query(queryString)
 	if err != nil {
 		return fmt.Errorf("show tables failed:%v", err)
 
 	}
 	for tables.Next() {
+		var indexPath string
 		var title string
 
-		err = tables.Scan(&title)
+		err = tables.Scan(&indexPath, &title)
 		if err != nil {
 			return fmt.Errorf("Scan Error :%v", err)
 		}
 
-		fmt.Printf("title is %v\n", title)
+		fmt.Printf("indexPath is %v, title is %v\n", indexPath, title)
 
 	}
 	return nil
